@@ -30,6 +30,13 @@
 #include <src/entities/player/player.h>
 #include <src/entities/worldmap/worldmap.h>
 
+#include <src/entities/player/goalkeeper_control.h>
+#include <src/entities/player/defenserright_control.h>
+#include <src/entities/player/defenserleft_control.h>
+#include <src/entities/player/forwardright_control.h>
+#include <src/entities/player/forwardleft_control.h>
+#include <src/entities/player/midfielder_control.h>
+
 #include <spdlog/spdlog.h>
 
 #define COACH_ITERATION_INTERVAL_MS 16
@@ -72,6 +79,13 @@ private:
     // Internal variables
     QMap<bool, QList<Player*>> _players;
     WorldMap* _worldMap;
+
+    GoalKeeper_Control *_GoalKeeper_Control;
+    DefenserRight_Control *_DefenserRight_Control;
+    DefenserLeft_Control *_DefenserLeft_Control;
+    ForwardLeft_Control *_ForwardLeft_Control;
+    ForwardRight_Control *_ForwardRight_Control;
+    Midfielder_Control *_Midfielder_Control;
 
 private slots:
     /*!

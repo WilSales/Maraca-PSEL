@@ -21,11 +21,12 @@
 
 #include "coach.h"
 #include <iostream>
+#include <cmath>
 
-#define ROBOT_RADIUS 0.09f;
-#define ROBOT_DIAMATER ( 2.0f * ROBOT_RADIUS );
-#define BALL_RADIUS 0.0215f;
-#define BALL_DIAMATER ( 2.0f * BALL_RADIUS );
+#define ROBOT_RADIUS 0.09f
+#define ROBOT_DIAMATER ( 2.0f * ROBOT_RADIUS )
+#define BALL_RADIUS 0.0215f
+#define BALL_DIAMATER ( 2.0f * BALL_RADIUS )
 
 
 
@@ -36,6 +37,13 @@ Coach::Coach(const QMap<bool, QList<Player*>>& players, WorldMap* worldMap)
     _actuatorTimer = new QTimer(this);
     QObject::connect(_actuatorTimer, &QTimer::timeout, this, &Coach::runCoach);
     _actuatorTimer->start(COACH_ITERATION_INTERVAL_MS);
+    _GoalKeeper_Control = new GoalKeeper_Control(worldMap);
+    _DefenserRight_Control = new DefenserRight_Control(worldMap);
+    _DefenserLeft_Control = new DefenserLeft_Control(worldMap);
+    _ForwardLeft_Control = new ForwardLeft_Control(worldMap);
+    _ForwardRight_Control = new ForwardRight_Control(worldMap);
+    _Midfielder_Control = new Midfielder_Control(worldMap);
+
 }
 
 std::optional<Player*> Coach::getPlayer(const bool& isTeamBlue, const quint8& playerId) {
@@ -95,6 +103,12 @@ QVector2D Intersectar( QVector2D Antes, QVector2D Depois , QVector2D PosPlayer )
 
 }
 
+int BallMachine = 1;
+bool IsBallMoving = false;
+int counterBall = 0;
+int flagMode = 0;
+int flagPY4 = 0;
+int flagPY2 = 0;
 
 void Coach::runCoach() {
     // Here you can control the robots freely.
@@ -115,11 +129,6 @@ void Coach::runCoach() {
     //getPlayer(BLUE, 2).value()->rotateTo(ballPosition);
     //getPlayer(YELLOW, 1).value()->rotateTo(ballPosition);
     //getPlayer(YELLOW, 2).value()->rotateTo(ballPosition);
-
-   // getPlayer(BLUE, 3).value()->dribble(true);
-  //  getPlayer(YELLOW, 3).value()->dribble(true);
-  //  getPlayer(BLUE, 2).value()->dribble(true);
-   // getPlayer(YELLOW, 2).value()->dribble(true);
 
 
 
@@ -155,10 +164,6 @@ void Coach::runCoach() {
        getPlayer(BLUE, 2).value()->rotateTo(ballPosition);
        getPlayer(YELLOW, 1).value()->rotateTo(ballPosition);
        getPlayer(YELLOW, 2).value()->rotateTo(ballPosition);
-       //QVector2D random = QVector2D(4.0f , 2.0f);
-       //getPlayer(YELLOW, 0).value()->goTo(random);
-
-       //getPlayer(YELLOW, 2).value()->goTo(QVector2D( 1.160f , -2.300f));
 
        QVector2D posDiagLefMedium = QVector2D(2.600f , 1.170f);
        QVector2D posDiagRightDeep = QVector2D(3.500f , -1.900f);
@@ -167,6 +172,190 @@ void Coach::runCoach() {
 
        QVector2D Target;
 
+       QVector2D ballPositionOne;
+       QVector2D ballPositionTwo;
+
+       QVector2D PosGoleiroYELLOW;
+       //PosGoleiroYELLOW = PosGoalKeeper(ballPosition);
+       getPlayer(YELLOW, 5).value()->rotateTo(ballPosition);
+
+
+       QMap< quint8, std::optional< Player * >> players;
+       for(quint8 playerId = 0; playerId < 6; playerId++){
+           players.insert(playerId, getPlayer(YELLOW, playerId));
+       }
+
+
+       if(distPY2toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPY1toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPY0toBall <= (ROBOT_RADIUS + BALL_DIAMATER) ||
+          distPY3toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPY4toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPY5toBall <= (ROBOT_RADIUS + BALL_DIAMATER) ){
+            flagMode = 1; //O time ataca
+       }
+
+       if(distPB2toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPB1toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPB0toBall <= (ROBOT_RADIUS + BALL_DIAMATER) ||
+          distPB3toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPB4toBall <= (ROBOT_RADIUS + BALL_DIAMATER) || distPB5toBall <= (ROBOT_RADIUS + BALL_DIAMATER)){
+           flagMode = 0; //O time defende
+       }
+
+
+
+       for(quint8 playerId : players.keys()){
+           if(players.value(playerId).has_value()){
+               if(playerId == 0){
+                   _DefenserLeft_Control->setPlayer(players.value(playerId).value());
+                   if(flagMode == 1 ){
+                       //_DefenserLeft_Control->atack();
+                       if( getWorldMap()->isBallInsideOurPenaltyArea() ){
+                           _DefenserLeft_Control->atack(5 , getPlayer(YELLOW , 3).value()->getPosition() );
+                       }
+                       else if((getWorldMap()->ballPosition().x() >= ( getWorldMap()->ourGoalCenter().x() - 3.000f )) && ( getWorldMap()->ballPosition().y() >= getWorldMap()->ourGoalLeftPost().y() )){
+                           _DefenserLeft_Control->atack(1 , getPlayer(YELLOW , 3).value()->getPosition());
+                       }
+                       else{
+                           _DefenserLeft_Control->atack(0 , getPlayer(YELLOW , 3).value()->getPosition());
+                       }
+                   }
+                   else{
+                       _DefenserLeft_Control->defend(ballPosition);
+                   }
+               }
+               else if(playerId == 1){
+                   _Midfielder_Control->setPlayer(players.value(playerId).value());
+                   if(flagMode == 1){
+                       std::cout<<"fm 1"<<std::endl;
+                       if( (ballPosition.x() >= -( getWorldMap()->length()/2 - getWorldMap()->penaltyDepth())) && ( ballPosition.x() <= ( getWorldMap()->length()/2 - getWorldMap()->penaltyDepth() ) ) && ( ballPosition.y() <= getWorldMap()->ourGoalLeftPost().y() )
+                               && ( ballPosition.y() >= getWorldMap()->ourGoalRightPost().y() )){
+                           std::cout<<"entrei no if"<<std::endl;
+                           if( ballPosition.y() <= 0 ){
+                               _Midfielder_Control->atack( getPlayer( YELLOW , 2 ).value()->getPosition() );
+                           }
+                           else{
+                               _Midfielder_Control->atack( getPlayer( YELLOW , 3 ).value()->getPosition() );
+                           }
+
+                       }
+                       //_Midfielder_Control->atack();
+                   }
+                   else{
+                       std::cout<<"fm 2"<<std::endl;
+                       _Midfielder_Control->defend(ballPosition);
+                   }
+
+               }
+               else if(playerId == 2){
+                   _ForwardLeft_Control->setPlayer(players.value(playerId).value());
+                   if(flagMode == 1){
+                       if( (ballPosition.x() <= getWorldMap()->theirGoalCenter().x() + 2.000f) && (ballPosition.y() <= getWorldMap()->ourGoalRightPost().y()) && (!getWorldMap()->isBallInsideTheirPenaltyArea()) ){
+                           _ForwardLeft_Control->atack(1);
+                       }
+                       else{
+                           _ForwardLeft_Control->atack(0);
+                       }
+                    //std::cout<<"flagmode 1"<<std::endl;
+                   }
+                    else{
+                       _ForwardLeft_Control->defend(ballPosition);
+                       //std::cout<<"flagmode 0"<<std::endl;
+                   }
+               }
+               else if(playerId == 3){
+                   _ForwardRight_Control->setPlayer(players.value(playerId).value());
+                   if(flagMode == 1){
+                       if( (ballPosition.x() <= getWorldMap()->theirGoalCenter().x() + 2.000f) && (ballPosition.y() >= getWorldMap()->ourGoalLeftPost().y()) && (!getWorldMap()->isBallInsideTheirPenaltyArea()) ){
+                           _ForwardRight_Control->atack(1);
+                       }
+                       else{
+                           _ForwardRight_Control->atack(0);
+                       }
+                  }
+                   else{
+                       _ForwardRight_Control->defend(ballPosition);
+                   }
+               }
+               else if(playerId == 4){
+                   _DefenserRight_Control->setPlayer(players.value(playerId).value());
+                   if(flagMode == 1 ){
+                       if( getWorldMap()->isBallInsideOurPenaltyArea() ){
+                           _DefenserRight_Control->atack(5 , getPlayer(YELLOW , 2).value()->getPosition() );
+
+                       }
+                       else if( (getWorldMap()->ballPosition().x() >= ( getWorldMap()->ourGoalCenter().x() - 3.000f )) && ( getWorldMap()->ballPosition().y() <= getWorldMap()->ourGoalRightPost().y() ) ){
+                           _DefenserRight_Control->atack( 1 , getPlayer(YELLOW , 2).value()->getPosition());
+                           //std::cout<<"oh aq"<<std::endl;
+                       }
+                       else{
+                           _DefenserRight_Control->atack( 0 , getPlayer(YELLOW , 2).value()->getPosition());
+                       }
+                   }
+                   else{
+                       _DefenserRight_Control->defend(ballPosition);
+                   }
+
+               }
+               else if(playerId == 5){
+                   _GoalKeeper_Control->setPlayer(players.value(playerId).value());
+                   if(getWorldMap()->isBallInsideOurPenaltyArea()){
+                       //pass or defend
+                       if(ballPosition.y() <= 0){
+                            _GoalKeeper_Control->pass(ballPosition, getPlayer(YELLOW,4).value()->getPosition());
+                            flagPY4 = 1;
+                       }
+                       else{
+                            _GoalKeeper_Control->pass(ballPosition, getPlayer(YELLOW,0).value()->getPosition());
+                       }
+                   }
+                   else{
+                       //defend for sure
+                       _GoalKeeper_Control->defend(ballPosition);
+                   }
+               }
+           }
+       }
+
+       //Mini máquina de estados para a posiçao da bola
+
+
+       //int flagBall = 0;
+
+/*
+       if(BallMachine == 1){
+            ballPositionOne = ballPosition;
+            spdlog::info("estado 1");
+            std::this_thread::sleep_for( std::chrono::milliseconds(100) );
+            BallMachine = 2;
+       }
+
+       if(BallMachine == 2){
+           ballPositionTwo = ballPosition;
+           spdlog::info("estado 2");
+           if( ( ballPositionOne.x() == ballPositionTwo.x() ) && ( ballPositionOne.y() == ballPositionTwo.y() ) ){
+               IsBallMoving = false;
+           }
+           else{
+               IsBallMoving = true;
+           }
+           std::this_thread::sleep_for( std::chrono::milliseconds(100) );
+           BallMachine = 1;
+       }
+
+       spdlog::info("X do ballPOsitionOne = {}", ballPositionOne.x() );
+       spdlog::info("X do ballPOsitionTwo = {}", ballPositionTwo.x() );
+
+      // fim da Máquina de estados para a posição da bola
+
+        if( IsBallMoving ){
+            spdlog::info("true");
+        }
+        else{
+            spdlog::info( "false" );
+        }
+*/
+
+       //spdlog::info("Position: ({}, {})", PosGoleiroYELLOW.x(), PosGoleiroYELLOW.y());
+       //spdlog::info("BalL Position = ( {} , {} )", ballPosition.x(), ballPosition.y() );
+       //getPlayer(YELLOW, 5).value()->goTo(PosGoleiroYELLOW);
+
+
+       /*
 
 
        if(estado == 0){
@@ -242,7 +431,7 @@ void Coach::runCoach() {
         getPlayer(BLUE, 2).value()->rotateTo(ballPosition);
         getPlayer(YELLOW, 0).value()->goTo(QVector2D( 1.500f , 2.100f));
         getPlayer(YELLOW, 2).value()->goTo(QVector2D( 1.200f , -1.300f));
-        getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.200f));
+        //getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.200f));
         std::cout << "estado 4" << std::endl;
         if( getPlayer(YELLOW, 2).value()->getPosition().distanceToPoint(QVector2D( 1.200f, -1.000f )) <= 0.300){
             counter++;
@@ -264,7 +453,7 @@ void Coach::runCoach() {
 
     if(estado == 5){
         std::cout << "estado 5" << std::endl;
-        getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.000f));
+        //getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.000f));
         getPlayer(YELLOW, 2).value()->goTo(QVector2D( 1.200f , -1.300f));
         getPlayer(BLUE, 1).value()->dribble(true);
         if( distPB1toBall <= 0.14 ){
@@ -284,7 +473,7 @@ void Coach::runCoach() {
 
     if(estado == 6){
         std::cout << "estado 6" << std::endl;
-        getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.150f));
+        //getPlayer(YELLOW, 5).value()->goTo(QVector2D( 4.000f , 0.150f));
         getPlayer(YELLOW, 2).value()->goTo(QVector2D( 1.200f , -1.300f));
         getPlayer(BLUE, 1).value()->dribble(true);
         getPlayer(BLUE, 1).value()->rotateTo(QVector2D( 2.300, -0.950 ));
@@ -311,7 +500,7 @@ void Coach::runCoach() {
         getPlayer(YELLOW, 2).value()->goTo(Target);
     }
 
-
+    */
 
 
     /*

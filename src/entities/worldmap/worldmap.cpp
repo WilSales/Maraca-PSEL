@@ -21,6 +21,8 @@
 
 
 #include "worldmap.h"
+#include <iostream>
+#include <cmath>
 
 WorldMap::WorldMap(const bool& isPlayingLeft) : _isPlayingLeft(isPlayingLeft)
 {
@@ -64,11 +66,11 @@ float WorldMap::goalWidth() const {
 }
 
 float WorldMap::penaltyDepth() const {
-    return 0.15f;
+    return 1.0f;
 }
 
 float WorldMap::penaltyWidth() const {
-    return 0.7f;
+    return 2.0f;
 }
 
 float WorldMap::penaltyMarkDistanceFromGoal() const {
@@ -132,6 +134,100 @@ QVector2D WorldMap::theirPenaltyMark() const {
 
 QVector2D WorldMap::ballPosition() const {
     return QVector2D(_ball.x() / 1000.0f, _ball.y() / 1000.0f);
+}
+
+bool WorldMap::isBallInsideOurPenaltyArea() const {
+    if(!playingLeftSide()){
+        QVector2D topLeft(ourGoalCenter().x() - penaltyDepth(), penaltyWidth()/2);
+        QVector2D bottomRight(ourGoalCenter().x() , -(penaltyWidth()/2) );
+
+        QVector2D ballPosition( _ball.x() / 1000.f , _ball.y() / 1000.f );
+
+        if(ballPosition.x() >= topLeft.x() && ballPosition.x() <= bottomRight.x()){
+            if(ballPosition.y() >= bottomRight.y() && ballPosition.y() <= topLeft.y()){
+                return true;
+            }
+        }
+        return false;
+    }
+    else{
+        QVector2D topLeft(ourGoalCenter().x(), penaltyWidth()/2);
+        QVector2D bottomRight(ourGoalCenter().x() + penaltyDepth(), -(penaltyWidth()/2) );
+
+        QVector2D ballPosition( _ball.x() / 1000.f , _ball.y() / 1000.f );
+
+        if(ballPosition.x() >= topLeft.x() && ballPosition.x() <= bottomRight.x()){
+            if(ballPosition.y() >= bottomRight.y() && ballPosition.y() <= topLeft.y()){
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+bool WorldMap::isBallInsideTheirPenaltyArea() const {
+    if(playingLeftSide()){
+        QVector2D topLeft(theirGoalCenter().x() - penaltyDepth(), penaltyWidth()/2);
+        QVector2D bottomRight(theirGoalCenter().x() , -(penaltyWidth()/2) );
+
+        QVector2D ballPosition( _ball.x() / 1000.f , _ball.y() / 1000.f );
+
+        if(ballPosition.x() >= topLeft.x() && ballPosition.x() <= bottomRight.x()){
+            if(ballPosition.y() >= bottomRight.y() && ballPosition.y() <= topLeft.y()){
+                return true;
+            }
+        }
+        return false;
+    }
+    else{
+        QVector2D topLeft(theirGoalCenter().x(), penaltyWidth()/2);
+        QVector2D bottomRight(theirGoalCenter().x() + penaltyDepth(), -(penaltyWidth()/2) );
+
+        QVector2D ballPosition( _ball.x() / 1000.f , _ball.y() / 1000.f );
+
+        if(ballPosition.x() >= topLeft.x() && ballPosition.x() <= bottomRight.x()){
+            if(ballPosition.y() >= bottomRight.y() && ballPosition.y() <= topLeft.y()){
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+bool WorldMap::isBallMoving(int flag) const {
+
+    int counter;
+    std::cout <<"flag eh: " << flag << std::endl;
+    QVector2D ballPosition_One;
+    QVector2D ballPosition_Two;
+    if(flag == 0){
+        counter = 0;
+        QVector2D ballPosition_One = QVector2D( _ball.x() / 1000.f , _ball.y() / 1000.f );
+        //std::cout <<"ballPosition_One: X = " << ballPosition_One.x() << " e Y = " << ballPosition_One.y() << std::endl;
+        //std::cout <<"ballPosition_One: X = " << ballPosition_One.x() << std::endl;
+        counter++;
+        flag = 1;
+       // std::cout <<"counter eh: " << counter << std::endl;
+    }
+
+    if(counter == 1){
+        counter++;
+       // std::cout <<"counter eh: " << counter << std::endl;
+    }
+    if(counter ==  2){
+        //std::cout <<"counter eh: " << counter << std::endl;
+        QVector2D ballPosition_Two = QVector2D( _ball.x() / 1000.f , _ball.y() / 1000.f );
+        //std::cout <<"ballPositionTwo: X = " << ballPosition_Two.x() << " e Y = " << ballPosition_Two.y() << std::endl;
+        //std::cout <<"ballPositionTwo: X = " << ballPosition_Two.x() << std::endl;
+        if( ( ballPosition_One.x() == ballPosition_Two.x() ) && ( ballPosition_One.y() == ballPosition_Two.y() ) ){
+            return false;
+        }
+
+    }
+    //std::cout <<"ballPositionOne: X = " << ballPosition_One.x() << std::endl;
+    //std::cout <<"ballPositionTwo: X = " << ballPosition_Two.x() << std::endl;
+    return true;
+
 }
 
 void WorldMap::updateBallDetection(const SSL_DetectionBall &ball)
